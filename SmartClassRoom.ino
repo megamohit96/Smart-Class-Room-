@@ -1,9 +1,9 @@
 /**********************
    Input Sensor Pins
 **********************/
-#define in 2             //IR sensor1(Outside the door)
-#define out 3            //IR sensor2(Inside the door) 
 #define tempPin 0        //Temperature pin (LM35)
+#define outside_room 2   //IR sensor1(Outside the door)
+#define inside_room 3    //IR sensor2(Inside the door) 
 
 /**********************
       OUTPUT PINS 
@@ -21,41 +21,54 @@
 /**********************
 Ac trigger temperature
 **********************/
-#define trigtemp 30
+#define trigTemp 30
 
 /**********************
        Variables
 **********************/
 int count = 0;           //stores the number of people currently in the room
-int pstatein=2;          //stores the previous state of IR sensor1(default 2)
-int pstateout=2;         //stores the previous state of IR sensor2(default 2)
+int pStateOut=2;         //stores the previous state of IR sensor1(default 2)
+int pStateIn=2;          //stores the previous state of IR sensor2(default 2)
 float temp;              //stores the value of temperature 
 long int i=0;            //for time delay
+int flagOut=0,flagIn=0;  //flag variables
 
 /********************** 
        Functions  
 **********************/
 
-void IN()                 
+void OUT()                 
 {
-    if(digitalRead(in)!=pstatein)           //increments count only if the current state is not the same as previous state.
-    {
-      count++;
-      Serial.print("Person In Room:");      //This is done to prevent the code from continuously incrementing the count if signal is blocked.
-      Serial.println(count);
-      delay(2000);
+    if(digitalRead(outside_room)!=pStateOut)       //increments count only if the current state is not the same as previous state.
+    {                                              //This is done to prevent the code from continuously incrementing the count if signal is blocked.
+      while(flagOut==0)
+      {
+       if(digitalRead(inside_room)!=pStateIn)
+       { 
+        count++;
+        Serial.print("People In Room:");      
+        Serial.println(count);
+        flagOut=1;
+       }
+      }
     }
 }
-void OUT()
+void IN()
 {
-    if(digitalRead(out)!=pstateout)         //increments count only if the current state is not the same as previous state.
-    {
-      count--;
-      if(count<0)
-      count=0;
-      Serial.print("Person In Room:");      //This is done to prevent the code from continuously decrementing the count if signal is blocked.
-      Serial.println(count);
-      delay(2000);
+    if(digitalRead(inside_room)!=pStateIn)         //decrements count only if the current state is not the same as previous state.
+    {                                              //This is done to prevent the code from continuously decrementing the count if signal is blocked.
+      while(flagIn==0)
+      {
+       if(digitalRead(outside_room)!=pStateOut)
+       {
+        count--;
+        if(count<0)
+        count=0;
+        Serial.print("People In Room:");      
+        Serial.println(count);
+        flagIn=1;
+       }
+      }
     }
 }
 
@@ -65,7 +78,7 @@ void OUT()
 void TEMP()
 {
   temp = analogRead(tempPin);              //Reads the sensor value                     
-  temp = temp * 0.45528125;                //Converts it to Celsius 
+  temp = temp * 0.48828125;                //Converts it to Celsius 
   Serial.print("TEMPERATURE = ");
   Serial.print(temp);
   Serial.print("*C");
@@ -79,8 +92,8 @@ void TEMP()
 void setup()
 {
   Serial.begin(9600);
-  pinMode(in, INPUT);                     
-  pinMode(out, INPUT);
+  pinMode(outside_room, INPUT);                     
+  pinMode(inside_room, INPUT);
   pinMode(fan1, OUTPUT);
   pinMode(fan2, OUTPUT);
   pinMode(fan3, OUTPUT);
@@ -90,7 +103,7 @@ void setup()
   pinMode(ac3, OUTPUT);
   pinMode(ac4, OUTPUT);
   TEMP();
-  Serial.print("Person In Room:");
+  Serial.print("People In Room:");
   Serial.println(count);
 }
 
@@ -99,12 +112,14 @@ void setup()
 *********************/
 void loop()
 {  
-  if(digitalRead(in))                 //IF IR sensor1 is high call IN function
-  IN();
-  if(digitalRead(out))                //IF IR sensor2 is high call OUT function
+  if(digitalRead(outside_room)&&flagIn==0)                 //IF IR sensor1 is high and flagIn is 0 call OUT function
   OUT();
-  pstatein=digitalRead(in);           //assigning the value of their current state to a variable.
-  pstateout=digitalRead(out);
+  if(digitalRead(inside_room)&&flagOut==0)                 //IF IR sensor2 is high and flagOut is 0 call IN function
+  IN();
+  pStateIn=digitalRead(inside_room);           //assigning the value of their current state to a variable.
+  pStateOut=digitalRead(outside_room);
+  flagOut=0;                                   //resetting the flag values to zero
+  flagIn=0;
   if(i==20000000)                     //calls the temp function once approximately every 10 min.
   {
     TEMP();
@@ -117,7 +132,7 @@ void loop()
   digitalWrite(fan2,LOW);             //turn off other Fans
   digitalWrite(fan3,LOW);
   digitalWrite(fan4,LOW);
-  if(temp>trigtemp)                   //if temperature more than the defined trigger temperature.
+  if(temp>trigTemp)                   //if temperature more than the defined trigger temperature.
     {
       digitalWrite(ac1, HIGH);        //turn on AC 1
       digitalWrite(ac2, LOW);         //turn off other AC's
@@ -136,7 +151,7 @@ void loop()
    digitalWrite(fan2,HIGH);
    digitalWrite(fan3, LOW);           //turn off other fans
    digitalWrite(fan4, LOW);
-   if(temp>trigtemp)                  //if temperature more than the defined trigger temperature.
+   if(temp>trigTemp)                  //if temperature more than the defined trigger temperature.
     {
       digitalWrite(ac1, HIGH);        //turn on AC's 1 & 2
       digitalWrite(ac2, HIGH);
@@ -157,7 +172,7 @@ void loop()
    digitalWrite(fan2,HIGH);
    digitalWrite(fan3,HIGH);           
    digitalWrite(fan4, LOW);           //turn off other fans
-   if(temp>trigtemp)                  //if temperature more than the defined trigger temperature.
+   if(temp>trigTemp)                  //if temperature more than the defined trigger temperature.
     {
       digitalWrite(ac1, HIGH);        //turn on AC's 1 , 2 & 3
       digitalWrite(ac2, HIGH);
@@ -178,7 +193,7 @@ void loop()
    digitalWrite(fan2,HIGH);
    digitalWrite(fan3,HIGH);            
    digitalWrite(fan4,HIGH);
-   if(temp>trigtemp)                   //if temperature more than the defined trigger temperature.
+   if(temp>trigTemp)                   //if temperature more than the defined trigger temperature.
     {
       digitalWrite(ac1, HIGH);         //turn on all AC's
       digitalWrite(ac2, HIGH);
